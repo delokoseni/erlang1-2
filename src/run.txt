@@ -1,0 +1,13 @@
+erl -sname control -setcookie delokoseni
+erl -sname sensors -setcookie delokoseni
+erl -sname autotrap -setcookie delokoseni
+erl -sname loader -setcookie delokoseni
+erl -sname airplane -setcookie delokoseni
+
+c(airport).
+
+airport:start_control().
+airport:start_sensors().
+airport:start_autotrap().
+airport:start_loader().
+airport:start_airplane().
