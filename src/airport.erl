@@ -1,5 +1,4 @@
 -module(airport).
-
 -export([
     start_control/0,
     start_sensors/0,
@@ -13,53 +12,57 @@
     airplane/0
 ]).
 
-node_name(Name) ->
-    {_, Host} = lists:splitwith(fun(X) -> X =/= $@ end, atom_to_list(node())),
-    list_to_atom(atom_to_list(Name) ++ Host).
-
 start_control() ->
-    register(control, spawn(?MODULE, control, [])).
+    Pid = spawn(?MODULE, control, []),
+    global:register_name(control, Pid),
+    io:format("[control] Started and registered globally~n"),
+    Pid.
 
 control() ->
     io:format("[control ~p] Started~n", [self()]),
     loop_control().
 
 loop_control() ->
+    SensorsPid = global:whereis_name(sensors),
+    AutotrapPid = global:whereis_name(autotrap),
+    LoaderPid = global:whereis_name(loader),
     receive
         {landing_request, AirplanePid} ->
-            io:format("[control] Landing request~n"),
+            io:format("[control] Landing request from ~p~n", [AirplanePid]),
 
-            {sensors, node_name(sensors)} ! {get_status, self()},
-
+            SensorsPid ! {get_status, self()},
             receive
                 {runway_status, Status} ->
                     io:format("[control] Runway status: ~p~n", [Status]),
-                    handle_runway_status(Status, AirplanePid)
+                    handle_runway_status(Status,
+                        AirplanePid,
+                        AutotrapPid,
+                        LoaderPid)
             end,
             loop_control()
     end.
 
-handle_runway_status(0, AirplanePid) ->
+handle_runway_status(0, AirplanePid, _AutotrapPid, _LoaderPid) ->
     AirplanePid ! {landing_denied};
-
-handle_runway_status(1, AirplanePid) ->
+handle_runway_status(1, AirplanePid, AutotrapPid, LoaderPid) ->
     AirplanePid ! {landing_allowed},
-    wait_for_landing().
+    wait_for_landing(AirplanePid, AutotrapPid, LoaderPid).
 
-wait_for_landing() ->
+wait_for_landing(AirplanePid, AutotrapPid, LoaderPid) ->
     receive
         {landed} ->
             io:format("[control] Plane landed~n"),
-
-            {autotrap, node_name(autotrap)} ! {start, self()},
+            AutotrapPid ! {start, self()},
             receive {done_autotrap} -> ok end,
-
-            {loader, node_name(loader)} ! {start, self()},
+            LoaderPid ! {start, self()},
             receive {done_loader} -> ok end
     end.
 
 start_sensors() ->
-    register(sensors, spawn(?MODULE, sensors, [])).
+    Pid = spawn(?MODULE, sensors, []),
+    global:register_name(sensors, Pid),
+    io:format("[sensors] Started and registered globally~n"),
+    Pid.
 
 sensors() ->
     io:format("[sensors ~p] Started~n", [self()]),
@@ -75,7 +78,10 @@ loop_sensors() ->
     end.
 
 start_autotrap() ->
-    register(autotrap, spawn(?MODULE, autotrap, [])).
+    Pid = spawn(?MODULE, autotrap, []),
+    global:register_name(autotrap, Pid),
+    io:format("[autotrap] Started and registered globally~n"),
+    Pid.
 
 autotrap() ->
     io:format("[autotrap ~p] Started~n", [self()]),
@@ -92,7 +98,10 @@ loop_autotrap() ->
     end.
 
 start_loader() ->
-    register(loader, spawn(?MODULE, loader, [])).
+    Pid = spawn(?MODULE, loader, []),
+    global:register_name(loader, Pid),
+    io:format("[loader] Started and registered globally~n"),
+    Pid.
 
 loader() ->
     io:format("[loader ~p] Started~n", [self()]),
@@ -109,19 +118,19 @@ loop_loader() ->
     end.
 
 start_airplane() ->
-    spawn(?MODULE, airplane, []).
+    Pid = spawn(?MODULE, airplane, []),
+    io:format("[airplane] Started ~p~n", [Pid]),
+    Pid.
 
 airplane() ->
+    ControlPid = global:whereis_name(control),
     io:format("[airplane ~p] Flying~n", [self()]),
-
-    {control, node_name(control)} ! {landing_request, self()},
-
+    ControlPid ! {landing_request, self()},
     receive
         {landing_denied} ->
             io:format("[airplane] Landing denied~n");
-
         {landing_allowed} ->
             io:format("[airplane] Landing allowed~n"),
             timer:sleep(1000),
-            {control, node_name(control)} ! {landed}
+            ControlPid ! {landed}
     end.

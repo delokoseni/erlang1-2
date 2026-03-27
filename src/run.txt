@@ -1,13 +1,22 @@
-erl -sname control -setcookie delokoseni
-erl -sname sensors -setcookie delokoseni
-erl -sname autotrap -setcookie delokoseni
-erl -sname loader -setcookie delokoseni
-erl -sname airplane -setcookie delokoseni
+erl -name control@DESKTOP-JMGKTOO.local -setcookie delokoseni
+erl -name sensors@DESKTOP-JMGKTOO.local -setcookie delokoseni
+erl -name autotrap@DESKTOP-JMGKTOO.local -setcookie delokoseni
+erl -name loader@DESKTOP-JMGKTOO.local -setcookie delokoseni
+erl -name airplane@DESKTOP-JMGKTOO.local -setcookie delokoseni
+
+net_adm:ping('control@DESKTOP-JMGKTOO.local').
+net_adm:ping('sensors@DESKTOP-JMGKTOO.local').
+net_adm:ping('autotrap@DESKTOP-JMGKTOO.local').
+net_adm:ping('loader@DESKTOP-JMGKTOO.local').
+net_adm:ping('airplane@DESKTOP-JMGKTOO.local').
 
 c(airport).
 
-airport:start_control().
 airport:start_sensors().
 airport:start_autotrap().
 airport:start_loader().
+airport:start_control().
 airport:start_airplane().
+
+
+DESKTOP-JMGKTOO
